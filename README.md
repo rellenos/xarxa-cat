@@ -4,6 +4,10 @@ Mapa web amb totes les línies de transport públic de Catalunya (metro, FGC, Ro
 regionals, TRAM, funiculars, bus TMB, bus AMB, bus urbà, bus interurbà i autocars),
 amb filtres per xarxa / operador / línia, cercador de línies i parades i fitxa de cada línia.
 
+> **Eina no oficial**, sense vinculació amb la Generalitat, l'ATM ni els operadors. Alguns traçats són aproximats i les
+> dades poden estar desactualitzades: consulteu sempre l'operador. (La web mostra aquest avís la primera visita i a
+> la pestanya Info.)
+
 ## Ús
 
 ```sh
@@ -60,6 +64,16 @@ carretera d'OSRM es guarden a la cache d'Actions (llavor: `data/cache/osrm-route
   parades amb `pickup_type`/`drop_off_type` = 2), accessibles (≥ 90 % d'expedicions amb `wheelchair_accessible` = 1;
   FGC, Rodalies i molts operadors no ho publiquen) i comarca / municipi (cada parada se situa dins els límits ICGC →
   camp `mu` de cada línia, `places` a `index.json`). Els tipus de servei se sumen; accessibilitat i lloc restringeixen.
+
+- **Novetats** (filtre *Novetats*, `scripts/news.mjs`):
+  - *Línies noves*: `data/seen-routes.json` registra cada línia (xarxa + empresa + número) el primer dia que apareix.
+    Les que apareixen després del dia d'inici del registre es marquen "Nova" durant 60 dies. El workflow fa commit del
+    registre a cada execució. (La data del calendari GTFS no serveix: molts operadors retallen el feed a cada publicació.)
+  - *Encara no circula*: primer dia de servei (`calendar.txt` + `calendar_dates.txt`) posterior al dia del build → "Aviat".
+  - *Bus anunciat*: `data/announced.json`, línies anunciades en notes de premsa que encara no són al GTFS, traçades per
+    carretera (OSRM) entre les parades anunciades. Cada entrada porta estat (`servei` / `anunciat` / `previst`), data,
+    font i `approx` si el traçat és una suposició. Amb `match` s'amaguen soles quan una línia GTFS amb el mateix número
+    serveix els dos extrems. Per afegir-ne: copiar una entrada i posar les coordenades de les parades.
 
 Per afegir un altre feed GTFS, afegeix-lo a `FEEDS` a `scripts/build-data.mjs`.
 

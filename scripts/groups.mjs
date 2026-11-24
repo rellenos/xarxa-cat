@@ -19,6 +19,7 @@ export const GROUPS = {
   estatal:      { name: 'Línies estatals (interregionals)', category: 'bus',  color: '#1F4E9C', rank: 3, icon: 'ES' },
   construccio:  { name: 'En construcció',                   category: 'planned', color: '#F57C00', rank: 4, icon: 'OB' },
   projecte:     { name: 'Projectades',                      category: 'planned', color: '#78909C', rank: 4, icon: 'PR' },
+  anunciat:     { name: 'Bus anunciat',                     category: 'planned', color: '#E65100', rank: 4, icon: 'BA' },
 };
 
 // French .liO / Hérault networks included in the ATM feed

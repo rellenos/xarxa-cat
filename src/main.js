@@ -59,7 +59,8 @@ const LINE_OPACITY = {
   'planned-p': 0.85,
 };
 const CATEGORIES = { rail: 'Ferrocarril', bus: 'Autobús', planned: 'En projecte' };
-const PLANNED_MODE = { subway: 'Metro', tram: 'Tramvia', rail: 'Ferrocarril' };
+const PLANNED_MODE = { subway: 'Metro', tram: 'Tramvia', rail: 'Ferrocarril', bus: 'Autobús' };
+const fmtDay = (d) => (/^\d{8}$/.test(d) ? `${d.slice(6, 8)}/${d.slice(4, 6)}/${d.slice(0, 4)}` : d);
 const MODE_LABEL = {
   metro: 'Metro', rail: 'Tren', tram: 'Tramvia', funicular: 'Funicular / cremallera', bus: 'Autobús',
 };
@@ -73,6 +74,7 @@ const SERVICE_FILTERS = [
   { key: 'nt', label: 'Nocturns', title: 'Bus nocturn (N1, N-80…)', test: (r) => r.nt },
   { key: 'expres', label: 'Exprés.cat', title: 'Línies exprés.cat (e1, e2…)', test: (r) => r.g === 'expres' },
   { key: 'dm', label: 'A demanda', title: 'Transport a demanda (TAD): cal reservar el servei', test: (r) => r.dm },
+  { key: 'nw', label: 'Novetats', title: 'Línies noves (últims 60 dies), que encara no circulen o anunciades', test: (r) => r.nw || r.ns || r.g === 'anunciat' },
 ];
 const WC_FILTER = {
   key: 'wc', label: 'Accessibles',
@@ -333,6 +335,36 @@ function renderLayersTab() {
 }
 
 // ---------- Info tab ----------
+const DISCLAIMER_HTML = `
+  <p><b>Eina no oficial</b>, feta a partir de dades obertes. No té cap vinculació amb la Generalitat, l’ATM ni els
+  operadors de transport.</p>
+  <p>Alguns traçats són <b>aproximats</b> (calculats per carretera o sobre la xarxa ferroviària quan l’operador no els
+  publica), les línies anunciades i en projecte poden canviar, i les dades poden estar desactualitzades o tenir errors.
+  Abans de viatjar, consulta sempre horaris i recorreguts a la web de l’operador.</p>
+  <p>Els logotips són marques dels seus titulars i només s’utilitzen per identificar les xarxes.</p>`;
+
+// One-time notice above the footer until the user dismisses it
+function showDisclaimerNotice() {
+  if (safeStorage('get', 'disclaimerOk') === '1') return;
+  const card = document.createElement('div');
+  card.className = 'disclaimer-notice';
+  card.setAttribute('role', 'note');
+  card.innerHTML = `<p><b>Eina no oficial.</b> Alguns traçats poden ser aproximats i les dades, desactualitzades.
+    Consulta sempre l’operador abans de viatjar.</p>
+    <div class="dn-actions"><button type="button" class="linklike dn-more">Més informació</button>
+    <button type="button" class="btn dn-ok">D’acord</button></div>`;
+  const close = () => { safeStorage('set', 'disclaimerOk', '1'); card.remove(); };
+  card.querySelector('.dn-ok').addEventListener('click', close);
+  card.querySelector('.dn-more').addEventListener('click', () => {
+    close();
+    $('#search').value = '';
+    if (selected !== null || focusedStation) resetHighlight();
+    showTab('info');
+    panel.scrollTop = 0;
+  });
+  $('#footer').before(card);
+}
+
 function renderInfoTab() {
   panel.replaceChildren();
   const box = document.createElement('div');
@@ -343,7 +375,10 @@ function renderInfoTab() {
     counts[c] = (counts[c] || 0) + 1;
   }
   const fmt = (n) => n.toLocaleString('ca');
+  const updated = DATA.generated ? new Date(DATA.generated).toLocaleDateString('ca', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
   box.innerHTML = `
+    <h3 class="section-title">Avís</h3>
+    <div class="disclaimer-text">${DISCLAIMER_HTML}${updated ? `<p class="muted">Dades actualitzades el ${updated}.</p>` : ''}</div>
     <h3 class="section-title">Resum</h3>
     <div class="stats">
       <div><b>${fmt(counts.rail || 0)}</b><span>línies de ferrocarril</span></div>
@@ -670,6 +705,7 @@ const FILTER_ICONS = {
   nt: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>',
   expres: '<svg viewBox="0 0 24 24"><path d="M13 3 5 14h6l-1 7 8-11h-6l1-7Z"/></svg>',
   dm: '<svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z"/></svg>',
+  nw: '<svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg>',
   wc: '<svg viewBox="0 0 24 24"><circle cx="11" cy="4" r="1.6"/><path d="M11 7v6h5l2 5"/><path d="M8 10.5a5.5 5.5 0 1 0 7.5 7"/></svg>',
   place: '<svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.3"/></svg>',
 };
@@ -747,6 +783,19 @@ function renderNode(node, depth) {
   return wrap;
 }
 
+// Small tag after the name: new line / not running yet
+function newsTag(r) {
+  const [cls, text, title] = r.ns ? ['soon', 'Aviat', `Encara no circula: comença el ${fmtDay(r.ns)}`]
+    : r.nw ? ['new', 'Nova', `Línia nova (detectada el ${fmtDay(r.nw)})`]
+      : r.as === 'servei' ? ['new', 'En servei', 'Ja circula, però encara no és a les dades obertes'] : [];
+  if (!cls) return null;
+  const t = document.createElement('span');
+  t.className = `news-tag ${cls}`;
+  t.textContent = text;
+  t.title = title;
+  return t;
+}
+
 function renderRouteRow(i) {
   const r = DATA.routes[i];
   const row = document.createElement('div');
@@ -766,6 +815,8 @@ function renderRouteRow(i) {
   name.className = 'name';
   name.textContent = r.l || r.s;
   label.append(name);
+  const tag = newsTag(r);
+  if (tag) label.append(tag);
   label.addEventListener('click', () => selectRoute(i, true));
   row.append(cb, label);
   return row;
@@ -870,7 +921,17 @@ function renderRouteDetail(i) {
     const dd = document.createElement('dd'); dd.textContent = v;
     meta.append(dt, dd);
   };
-  if (r.m === 'plan') {
+  if (r.g === 'anunciat') {
+    const STATUS = { servei: 'Ja en servei (encara no és a les dades obertes)', anunciat: 'Anunciada', previst: 'Prevista, sense data concreta' };
+    addMeta('Estat', STATUS[r.as] || 'Prevista');
+    addMeta(r.as === 'servei' ? 'En servei des de' : 'Inici previst', fmtDay(String(r.od).replace(/-/g, '')));
+    addMeta('Operador', r.a);
+    addMeta('Longitud', `${r.km.toLocaleString('ca')} km`);
+    if (r.mu?.length) addMeta('Municipis', r.mu.map((m) => DATA.places.munis[m].n).join(', '));
+    if (r.nt2) addMeta('Detalls', r.nt2);
+    addMeta('Traçat', r.ax ? 'Aproximat: calculat per carretera entre les parades anunciades' : 'Calculat per carretera entre les parades anunciades');
+    addMeta('Font', r.un || 'Notícia');
+  } else if (r.m === 'plan') {
     addMeta('Estat', r.g === 'construccio' ? 'En construcció' : 'Projectada / en estudi');
     addMeta('Tipus', PLANNED_MODE[r.pm]);
     addMeta('Longitud', `${r.km.toLocaleString('ca')} km`);
@@ -884,6 +945,8 @@ function renderRouteDetail(i) {
   addMeta('Operador (GTFS)', r.a);
   addMeta('Parades', String(r.st.length));
   addMeta('Expedicions', `${r.t.toLocaleString('ca')} al calendari`);
+  if (r.ns) addMeta('Estat', `Encara no circula: comença el ${fmtDay(r.ns)}`);
+  else if (r.nw) addMeta('Estat', `Línia nova (detectada a les dades el ${fmtDay(r.nw)})`);
   const service = [r.nt && 'Nocturn', r.g === 'expres' && 'Exprés.cat', r.dm && 'A demanda (cal reservar)'].filter(Boolean);
   if (service.length) addMeta('Servei', service.join(' · '));
   addMeta('Accessibilitat', r.wc === 1 ? 'Adaptada a cadira de rodes' : r.wc === 2 ? 'Algunes expedicions adaptades' : 'Sense dades de l’operador');
@@ -910,7 +973,7 @@ function renderRouteDetail(i) {
     a.href = r.u;
     a.target = '_blank';
     a.rel = 'noopener';
-    a.textContent = r.m === 'plan' ? (r.u.includes('openstreetmap.org') ? 'Veure a OpenStreetMap' : 'Més informació') : 'Web de l’operador';
+    a.textContent = r.g === 'anunciat' ? 'Veure l’anunci' : r.m === 'plan' ? (r.u.includes('openstreetmap.org') ? 'Veure a OpenStreetMap' : 'Més informació') : 'Web de l’operador';
     actions.append(a);
   }
 
@@ -939,8 +1002,18 @@ function renderRouteDetail(i) {
   }
   const h3 = document.createElement('h3');
   h3.textContent = 'Parades';
+  // announced lines: their planned stops (no GTFS stop behind them)
+  for (const [n, x, y] of r.ast || []) {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.textContent = n;
+    btn.addEventListener('click', () => map.flyTo({ center: [x, y], zoom: 15 }));
+    li.append(btn);
+    list.append(li);
+  }
+  if (r.ast) h3.textContent = r.ax ? 'Parades anunciades (ubicació aproximada)' : 'Parades anunciades';
   box.append(back, head, meta, actions);
-  if (r.st.length) box.append(h3, list);
+  if (r.st.length || r.ast?.length) box.append(h3, list);
   panel.append(box);
   panel.scrollTop = 0;
 }
@@ -1112,7 +1185,7 @@ function updateFooter() {
   let n = 0;
   for (let i = 0; i < visible.length; i++) n += isShown(i) ? 1 : 0;
   $('#footer').innerHTML = `<span>${n.toLocaleString('ca')} de ${DATA.routes.length.toLocaleString('ca')} línies visibles${filtersActive() ? ' · <b>filtrat</b>' : ''}</span>
-    <button class="linklike" type="button">Fonts i llegenda</button>`;
+    <button class="linklike" type="button">Info · eina no oficial</button>`;
   $('#footer button').addEventListener('click', () => { $('#search').value = ''; if (selected !== null || focusedStation) resetHighlight(); showTab('info'); });
 }
 
@@ -1814,6 +1887,7 @@ async function init() {
   }));
   syncChecks();
   updateFooter();
+  showDisclaimerNotice();
   appliedFactor = widthFactor();
   addLayers();
   applyBasemapTweaks();

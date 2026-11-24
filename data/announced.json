@@ -1,0 +1,110 @@
+{
+  "_help": "Bus lines announced but not (yet) in the open GTFS data. Each one is drawn by road between its points (OSRM). status: 'servei' = already running, missing from open data; 'anunciat' = announced with a date; 'previst' = promised, no firm date. approx: true when the route or stops are a guess (shown as 'traçat aproximat'). match: when a GTFS line with this short name serves both ends (within ~1.5 km), the announcement is dropped automatically. Points: [name, lon, lat]; a name starting with '~' is only a routing waypoint (not a stop).",
+  "lines": [
+    {
+      "id": "e8-montblanc-tarragona",
+      "s": "e8",
+      "l": "Montblanc – Valls – Tarragona",
+      "status": "servei",
+      "date": "2026-11-17",
+      "operator": "Plana",
+      "color": "D7141A",
+      "note": "Exprés per l'A-27 i el túnel del Coll de Lilla. 9 expedicions per sentit de dilluns a divendres feiners.",
+      "source": "https://govern.cat/salapremsa/notes-premsa/892660/territori-posa-marxa-nova-linia-bus-expres-montblanc-valls-tarragona",
+      "sourceName": "Govern.cat, 16/11/2026",
+      "match": { "s": "e8" },
+      "points": [
+        ["Montblanc (estació d'autobusos)", 1.16335, 41.3777],
+        ["Valls (estació d'autobusos)", 1.25343, 41.28588],
+        ["N-240 Zona educacional", 1.23981, 41.13083],
+        ["Camí de l'Àngel", 1.24318, 41.12427],
+        ["Tarragona (estació d'autobusos)", 1.24443, 41.11827]
+      ]
+    },
+    {
+      "id": "e9-riumar-tortosa",
+      "s": "e9",
+      "l": "Riumar – Deltebre – Amposta – Tortosa",
+      "status": "servei",
+      "date": "2026-11-24",
+      "operator": "HIFE",
+      "color": "D7141A",
+      "approx": true,
+      "note": "Només cinc parades. 7 expedicions per sentit de dilluns a divendres feiners. Integrada a l'ATM del Camp de Tarragona. La posició de les parades de Riumar, Deltebre i Sant Jaume és aproximada.",
+      "source": "https://govern.cat/salapremsa/notes-premsa/895176/territori-posa-marxa-nova-linia-expres-que-connecta-deltebre-tortosa",
+      "sourceName": "Govern.cat, 23/11/2026",
+      "match": { "s": "e9", "near": [0.52159, 40.80576] },
+      "points": [
+        ["Riumar (oficina de turisme)", 0.8475, 40.7238],
+        ["Deltebre (pl. de les Dones)", 0.7178, 40.7213],
+        ["Sant Jaume d'Enveja (av. de l'Ebre)", 0.7182, 40.7088],
+        ["Amposta (estació d'autobusos)", 0.57196, 40.70687],
+        ["Tortosa (estació d'autobusos)", 0.52159, 40.80576]
+      ]
+    },
+    {
+      "id": "619-malgrat-canruti-barcelona",
+      "s": "619",
+      "l": "Malgrat de Mar – Campus Can Ruti – Barcelona",
+      "status": "anunciat",
+      "date": "2026-11-30",
+      "operator": "Sagalés",
+      "approx": true,
+      "note": "4 expedicions per sentit de dilluns a divendres feiners. Parades per municipi aproximades i terminal de Barcelona per confirmar.",
+      "source": "https://govern.cat/salapremsa/notes-premsa/895388/paneque-reforcem-mobilitat-lalt-maresme-noves-expedicions-bus-connexio-directa-can-ruti-barcelona",
+      "sourceName": "Govern.cat, 23/11/2026",
+      "match": { "s": "619" },
+      "points": [
+        ["Malgrat de Mar", 2.73051, 41.63911],
+        ["Santa Susanna", 2.70766, 41.63435],
+        ["Pineda de Mar", 2.67348, 41.62288],
+        ["Calella", 2.65199, 41.61272],
+        ["Sant Pol de Mar", 2.6175, 41.6008],
+        ["Canet de Mar", 2.58112, 41.58673],
+        ["Arenys de Mar", 2.54901, 41.57761],
+        ["Caldes d'Estrac", 2.5300, 41.5708],
+        ["Sant Vicenç de Montalt", 2.51766, 41.56537],
+        ["Sant Andreu de Llavaneres", 2.49822, 41.55595],
+        ["Campus Can Ruti", 2.23822, 41.48281],
+        ["Barcelona", 2.18283, 41.39481]
+      ]
+    },
+    {
+      "id": "barbera-barcelona-directe",
+      "s": "Directe",
+      "l": "Barberà del Vallès – Barcelona (directe)",
+      "status": "previst",
+      "date": "2026-12",
+      "dateText": "abans de Nadal de 2026",
+      "approx": true,
+      "note": "Compromís de la Generalitat amb l'Ajuntament (octubre 2026). No s'han publicat recorregut, parades ni operador: el traçat és una suposició per la C-58 fins a la Meridiana.",
+      "source": "https://liniaxarxa.cat/liniavalles-cerdanyola/noticies/barbera-tindra-bus-directe-barcelona-quan-podria-posar-funcionament/",
+      "sourceName": "Línia Vallès, 22/10/2026",
+      "points": [
+        ["Barberà (pg. Dr. Moragas – pl. de la Vila)", 2.12404, 41.51626],
+        ["Barberà (rda. de l'Est – pg. Dr. Moragas)", 2.12507, 41.51345],
+        ["Barcelona (av. Meridiana – Rio de Janeiro)", 2.18612, 41.44268],
+        ["Barcelona (Fabra i Puig)", 2.18311, 41.43142]
+      ]
+    },
+    {
+      "id": "bcn-expres-zonafranca-drassanes",
+      "s": "Exprés",
+      "l": "Marina del Prat Vermell – Drassanes (pel Morrot)",
+      "status": "previst",
+      "date": "2026-12",
+      "dateText": "abans que acabi el 2026",
+      "operator": "TMB",
+      "color": "E30613",
+      "approx": true,
+      "note": "Bus exprés de 10 minuts pel pas del Morrot (antiga via del port). Parades i vehicles per definir.",
+      "source": "https://beteve.cat/mobilitat/bus-expres-morrot-zona-franca-drassanes-circulara-2026/",
+      "sourceName": "betevé",
+      "points": [
+        ["Pg. de la Zona Franca (Marina del Prat Vermell)", 2.1452, 41.3568],
+        ["~Morrot", 2.1655, 41.3658],
+        ["Drassanes", 2.17675, 41.37479]
+      ]
+    }
+  ]
+}

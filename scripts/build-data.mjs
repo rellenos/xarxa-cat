@@ -12,11 +12,13 @@ import { GROUPS, classifyRoute, companyOf, EXCLUDED_AGENCY_PREFIXES } from './gr
 import { fetchPlanned, buildProjects, refFromName, PLANNED_MODE_LABEL, overpass } from './planned.mjs';
 import { STATIONS_QUERY, buildStations } from './stations.mjs';
 import { RAIL_QUERY, buildRailGraph, routeByRail, insideRailBbox } from './railroute.mjs';
+import { markNewRoutes, addAnnounced } from './news.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/(\w:)/, '$1')), '..');
 const RAW = path.join(ROOT, 'data', 'raw');
 const OUT = path.join(ROOT, 'public', 'data');
 const REFRESH = process.argv.includes('--refresh');
+const TODAY = new Date().toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD (UTC)
 
 const FEEDS = [
   {
@@ -376,12 +378,22 @@ async function processFeed(cfg, out) {
     });
   });
 
+  // first day each service runs (calendar with any weekday, or an added calendar_dates day) -> lines not running yet
+  const serviceFirst = new Map();
+  const earlier = (sid, d) => { if (d && (!serviceFirst.has(sid) || d < serviceFirst.get(sid))) serviceFirst.set(sid, d); };
+  await eachRow(feed, 'calendar.txt', (c) => {
+    if (['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].some((d) => c[d] === '1')) earlier(c.service_id, c.start_date);
+  });
+  await eachRow(feed, 'calendar_dates.txt', (c) => { if (c.exception_type === '1') earlier(c.service_id, c.date); });
+
   // trips
   const tripRoute = new Map();
   await eachRow(feed, 'trips.txt', (t) => {
     const r = routes.get(t.route_id);
     if (!r) return;
     r.trips++;
+    const first = serviceFirst.get(t.service_id);
+    if (first && (!r.firstDay || first < r.firstDay)) r.firstDay = first;
     if (t.wheelchair_accessible === '1') r.wcYes++;
     const dir = t.direction_id || '0';
     if (t.shape_id) {
@@ -564,6 +576,8 @@ async function processFeed(cfg, out) {
       dm: r.demand ? 1 : undefined,
       // wheelchair: 1 = (almost) every trip accessible, 2 = some trips
       wc: r.wcYes && r.wcYes >= r.trips * 0.9 ? 1 : r.wcYes ? 2 : undefined,
+      // not running yet: first service day (YYYYMMDD) is after the build day
+      ns: r.firstDay && r.firstDay > TODAY ? r.firstDay : undefined,
       st: stopIds.map((sid) => {
         const key = `${cfg.id}:${sid}`;
         if (!out.stopIndex.has(key)) {
@@ -626,6 +640,7 @@ function dedupe(out) {
           keep.nt ||= gone.nt;
           keep.dm ||= gone.dm;
           if (gone.wc && (!keep.wc || gone.wc < keep.wc)) keep.wc = gone.wc;
+          keep.ns = keep.ns && gone.ns ? (keep.ns < gone.ns ? keep.ns : gone.ns) : undefined; // either copy running = running
         }
       }
     }
@@ -804,6 +819,10 @@ async function assignMunicipalities(out) {
   const munis = MUNICIPALITIES.map((m) => ({ n: m.name, c: comarques.indexOf(m.comarca), b: m.b.map(round) }));
   for (const r of out.routes) {
     const set = new Set((r.st || []).map((si) => stopMuni[si]).filter((m) => m >= 0));
+    for (const [, x, y] of r.ast || []) { // announced lines: their planned stops
+      const m = MUNICIPALITIES.findIndex((mu) => x >= mu.b[0] && x <= mu.b[2] && y >= mu.b[1] && y <= mu.b[3] && pointInMultiPolygon(x, y, mu.mp));
+      if (m >= 0) set.add(m);
+    }
     if (set.size) r.mu = [...set].sort((a, b) => a - b);
   }
   out.stops.forEach((s, i) => { if (stopMuni[i] >= 0) s.mu = stopMuni[i]; });
@@ -1028,7 +1047,10 @@ async function main() {
   for (const cfg of FEEDS) await processFeed(cfg, out);
   saveOsrmCache();
   dedupe(out);
+  markNewRoutes(out, path.join(ROOT, 'data', 'seen-routes.json'), log);
   await addPlanned(out);
+  await addAnnounced(out, path.join(ROOT, 'data', 'announced.json'), { routeByRoad, simplify, round, log });
+  saveOsrmCache();
   await writeBoundary();
   await writeZones(out);
   await writeAmb();
