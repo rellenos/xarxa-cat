@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ca">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Visor del transport públic de Catalunya</title>
+    <meta name="description" content="Mapa de totes les línies de transport públic de Catalunya: metro, FGC, Rodalies, TRAM, bus urbà i interurbà." />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <header class="sb-header">
+          <div class="brand">
+            <div class="logo" aria-hidden="true">
+              <svg viewBox="0 0 32 32">
+                <path d="M5 5H27L5 27Z" fill="#fff" stroke="#fff" stroke-width="3" stroke-linejoin="round" />
+              </svg>
+            </div>
+            <div>
+              <h1>Visor del transport públic</h1>
+              <p>Catalunya</p>
+            </div>
+          </div>
+          <button id="sb-toggle" class="icon-btn" aria-label="Amaga o mostra el panell" title="Amaga o mostra el panell">
+            <svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6" /></svg>
+          </button>
+        </header>
+        <div class="search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
+          <input id="search" type="search" placeholder="Cerca una línia, operador o parada" autocomplete="off" />
+        </div>
+        <nav class="tabs" role="tablist" aria-label="Seccions del panell">
+          <button class="tab" role="tab" data-tab="xarxes">Xarxes</button>
+          <button class="tab" role="tab" data-tab="capes">Capes</button>
+          <button class="tab" role="tab" data-tab="info">Info</button>
+        </nav>
+        <div id="panel" class="panel"><div class="loading">Carregant dades…</div></div>
+        <footer class="sb-footer" id="footer"></footer>
+      </aside>
+      <main id="map"></main>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

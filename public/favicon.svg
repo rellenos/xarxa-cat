@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#c8102e"/>
+  <!-- Catalunya as a right triangle: Pyrenees on top, Aragon border on the left, coast as hypotenuse -->
+  <path d="M5 5H27L5 27Z" fill="#fff" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
+</svg>

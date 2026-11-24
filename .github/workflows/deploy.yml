@@ -1,0 +1,68 @@
+name: Build data and deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 4 * * 1' # every Monday 04:00 UTC: fresh GTFS data
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Road routes computed with the public OSRM server: keep them between runs so only new lines are requested.
+      # The committed data/cache/osrm-routes.json is the seed; a newer cached copy replaces it.
+      - name: Restore OSRM route cache
+        uses: actions/cache/restore@v4
+        with:
+          path: data/cache/osrm-routes.json
+          key: osrm-${{ github.run_id }}
+          restore-keys: osrm-
+
+      # Downloads the GTFS feeds (ATM, ALSA, Renfe, Ouigo, iryo). OpenStreetMap / ICGC data come from data/raw/
+      # (refresh them locally with `npm run data -- --refresh` and commit).
+      - name: Build data
+        run: npm run data
+
+      - name: Save OSRM route cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/cache/osrm-routes.json
+          key: osrm-${{ github.run_id }}
+
+      - run: npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

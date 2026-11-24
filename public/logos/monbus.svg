@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Monbus symbol. Source: Wikimedia Commons, "Monbus Logo.svg" (CC BY-SA 4.0) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="18.174328mm" height="18.174328mm" viewBox="0 0 18.174328 18.174328" version="1.1">
+  <g transform="translate(-85.7267,-138.91006)">
+    <rect style="fill:#1c204e;stroke:none" width="18.174328" height="18.174328" x="85.7267" y="138.91006" ry="0" />
+    <path style="fill:#f2c33b;stroke:#ffffff;stroke-width:0.365" d="m 90.820895,143.92153 c 2.598587,0 2.598587,0 2.598587,0 l -2.184162,8.1514 h -2.54054 z" />
+    <path style="fill:#ffffff;stroke:#ffffff;stroke-width:0.365" d="m 94.577036,143.92153 c 2.598587,0 2.598587,0 2.598587,0 l -2.184162,8.1514 h -2.54054 z" />
+    <path style="fill:#1c204e;stroke:#ffffff;stroke-width:0.365" d="m 98.333172,143.92153 c 2.598588,0 2.598588,0 2.598588,0 l -2.184163,8.1514 h -2.54054 z" />
+  </g>
+</svg>

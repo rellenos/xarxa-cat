@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 34 22">
+  <!-- Bus interurbà: coach seen from the side -->
+  <rect width="34" height="22" rx="6" fill="#43A047"/>
+  <path d="M6 7.2 Q6 5 8.2 5 H25.5 Q27.6 5 28 7.4 L28.4 13.6 Q28.4 15.6 26.4 15.6 H8 Q6 15.6 6 13.6 Z" fill="#fff"/>
+  <g fill="#43A047">
+    <rect x="8" y="7" width="3.6" height="3.2" rx="0.6"/>
+    <rect x="12.6" y="7" width="3.6" height="3.2" rx="0.6"/>
+    <rect x="17.2" y="7" width="3.6" height="3.2" rx="0.6"/>
+    <rect x="21.8" y="7" width="4.4" height="3.2" rx="0.6"/>
+  </g>
+  <circle cx="11" cy="16" r="2.1" fill="#fff" stroke="#43A047" stroke-width="1.2"/>
+  <circle cx="23.5" cy="16" r="2.1" fill="#fff" stroke="#43A047" stroke-width="1.2"/>
+</svg>
