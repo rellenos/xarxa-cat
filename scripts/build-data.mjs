@@ -13,6 +13,7 @@ import { fetchPlanned, buildProjects, refFromName, PLANNED_MODE_LABEL, overpass 
 import { STATIONS_QUERY, buildStations } from './stations.mjs';
 import { RAIL_QUERY, buildRailGraph, routeByRail, insideRailBbox } from './railroute.mjs';
 import { markNewRoutes, addAnnounced } from './news.mjs';
+import { POP_URL, POP_YEAR, BUS_RADIUS, RAIL_RADIUS, loadPopulationGrid, toUtm, pointIndex } from './coverage.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/(\w:)/, '$1')), '..');
 const RAW = path.join(ROOT, 'data', 'raw');
@@ -830,6 +831,90 @@ async function assignMunicipalities(out) {
   return { munis, comarques };
 }
 
+// ---------- population coverage (Idescat georeferenced population grid) ----------
+async function ensurePopulationGrid() {
+  const dir = path.join(RAW, 'idescat');
+  const shp = path.join(dir, String(POP_YEAR), `gridpoblacio0101${POP_YEAR}.shp`);
+  if (fs.existsSync(shp) && !REFRESH) return dir;
+  fs.mkdirSync(dir, { recursive: true });
+  const zipFile = path.join(dir, `gridpoblacio0101${POP_YEAR}.zip`);
+  if (REFRESH || !fs.existsSync(zipFile)) await download(POP_URL, zipFile);
+  const z = await openZip(zipFile);
+  for (const [name] of z.entries) {
+    if (!/\.(shp|dbf)$/.test(name) || name.includes('..')) continue;
+    const dest = path.join(dir, name);
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    await pipeline(await entryStream(z, name), fs.createWriteStream(dest));
+  }
+  z.zip.close();
+  return dir;
+}
+
+async function writeCoverage(out, places) {
+  const dir = await ensurePopulationGrid();
+  const cells = loadPopulationGrid(dir);
+  // stops of lines actually running (no planned / announced / not-yet-started lines)
+  const live = (ri) => out.routes[ri].m !== 'plan' && !out.routes[ri].ns;
+  const isRail = (ri) => GROUPS[out.routes[ri].g].category === 'rail';
+  const busPts = [], railPts = [];
+  for (const s of out.stops) {
+    if (!s.r.some(live)) continue;
+    const p = toUtm(s.x, s.y);
+    busPts.push(p);
+    if (s.r.some((ri) => live(ri) && isRail(ri))) railPts.push(p);
+  }
+  const nearStop = pointIndex(busPts, BUS_RADIUS);
+  const nearRail = pointIndex(railPts, RAIL_RADIUS);
+
+  const M = MUNICIPALITIES;
+  const acc = M.map(() => ({ p: 0, b: 0, r: 0 }));
+  const uncovered = [];
+  let lastM = -1;
+  for (const c of cells) {
+    // neighbouring cells are usually in the same municipality: test the last one first
+    let m = lastM >= 0 && pointInMultiPolygon(c.lon, c.lat, M[lastM].mp) ? lastM : -1;
+    if (m < 0) m = M.findIndex((mu) => c.lon >= mu.b[0] && c.lon <= mu.b[2] && c.lat >= mu.b[1] && c.lat <= mu.b[3] && pointInMultiPolygon(c.lon, c.lat, mu.mp));
+    if (m < 0) continue;
+    lastM = m;
+    const a = acc[m];
+    a.p += c.pop;
+    if (nearStop(c.x, c.y, BUS_RADIUS)) a.b += c.pop;
+    else if (!c.suppressed) uncovered.push([round(c.lon), round(c.lat), c.pop]);
+    if (nearRail(c.x, c.y, RAIL_RADIUS)) a.r += c.pop;
+  }
+
+  const stopsPerMuni = new Array(M.length).fill(0);
+  for (const s of out.stops) if (s.mu !== undefined && s.r.some(live)) stopsPerMuni[s.mu]++;
+  const pct = (x, t) => (t ? Math.round((x / t) * 1000) / 10 : 0);
+  const features = [];
+  M.forEach((m, i) => {
+    const a = acc[i];
+    Object.assign(places.munis[i], { p: a.p, cb: pct(a.b, a.p), cr: pct(a.r, a.p), sc: stopsPerMuni[i] });
+    const geom = m.mp
+      .map((poly) => poly.map((ring) => simplify(ring, 0.0004).map(([x, y]) => [Math.round(x * 1e4) / 1e4, Math.round(y * 1e4) / 1e4])))
+      .filter((poly) => poly[0].length >= 4);
+    features.push({
+      type: 'Feature',
+      properties: { k: 'm', i, n: m.name, p: a.p, b: pct(a.b, a.p), r: pct(a.r, a.p), s: stopsPerMuni[i] },
+      geometry: { type: 'MultiPolygon', coordinates: geom },
+    });
+  });
+  // people without a stop within BUS_RADIUS (cells of 17+ people)
+  for (const [x, y, p] of uncovered) features.push({ type: 'Feature', properties: { k: 'u', p }, geometry: { type: 'Point', coordinates: [x, y] } });
+  fs.writeFileSync(path.join(OUT, 'cobertura.geojson'), JSON.stringify({ type: 'FeatureCollection', features }));
+
+  const tot = acc.reduce((t, a) => ({ p: t.p + a.p, b: t.b + a.b, r: t.r + a.r }), { p: 0, b: 0, r: 0 });
+  const noStop = M.map((_, i) => i).filter((i) => !stopsPerMuni[i]);
+  const summary = {
+    year: POP_YEAR, busRadius: BUS_RADIUS, railRadius: RAIL_RADIUS,
+    pop: tot.p, bus: pct(tot.b, tot.p), rail: pct(tot.r, tot.p),
+    noStopMunis: noStop.length, noStopPop: noStop.reduce((s, i) => s + acc[i].p, 0),
+    uncoveredPop: tot.p - tot.b,
+  };
+  log('coverage:', JSON.stringify(summary), (fs.statSync(path.join(OUT, 'cobertura.geojson')).size / 1e6).toFixed(2), 'MB');
+  return summary;
+}
+
 // ---------- main stations and interchanges (OSM + our lines) ----------
 async function writeStations(out) {
   let osm;
@@ -1059,12 +1144,14 @@ async function main() {
   await writeDivision('provincies.geojson', (m) => m.pcode, (m) => m.provincia);
   await writeStations(out);
   const places = await assignMunicipalities(out);
+  const coverage = await writeCoverage(out, places);
 
   const index = {
     generated: new Date().toISOString(),
     sources: FEEDS.map(({ id, name, source }) => ({ id, name, source })),
     groups: GROUPS,
     places,
+    coverage,
     routes: out.routes,
     stops: out.stops.map((s) => ({ n: s.n, x: s.x, y: s.y, r: s.r, ...(s.z ? { z: s.z } : {}) })),
   };

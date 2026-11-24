@@ -65,6 +65,11 @@ carretera d'OSRM es guarden a la cache d'Actions (llavor: `data/cache/osrm-route
   FGC, Rodalies i molts operadors no ho publiquen) i comarca / municipi (cada parada se situa dins els límits ICGC →
   camp `mu` de cada línia, `places` a `index.json`). Els tipus de servei se sumen; accessibilitat i lloc restringeixen.
 
+- **Cobertura** (Capes → Anàlisi, `scripts/coverage.mjs`): població georeferenciada de l'Idescat (Cens 2025, graella
+  de 62,5–250 m en UTM 31N; quadrícules < 17 persones amagades → es compten com 8) creuada amb les parades de les línies
+  en servei. Per municipi: % de població a ≤500 m d'una parada i a ≤1 km de tren / metro / tram, i punts de població
+  sense parada a prop → `public/data/cobertura.geojson` i `coverage` / `places.munis[].{p,cb,cr,sc}` a `index.json`.
+  La graella es baixa a `data/raw/idescat/` (no versionat). No té en compte la freqüència del servei.
 - **Novetats** (filtre *Novetats*, `scripts/news.mjs`):
   - *Línies noves*: `data/seen-routes.json` registra cada línia (xarxa + empresa + número) el primer dia que apareix.
     Les que apareixen després del dia d'inici del registre es marquen "Nova" durant 60 dies. El workflow fa commit del

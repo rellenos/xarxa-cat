@@ -87,6 +87,12 @@ const isShown = (i) => visible[i] && passes[i];
 const filtersActive = () => activeFilters.size > 0 || !!placeFilter;
 let selected = null; // route index
 let showZones = safeStorage('get', 'zones') === '1';
+let showCoverage = safeStorage('get', 'coverage') === '1';
+let showUncovered = safeStorage('get', 'uncovered') === '1';
+let coverageMetric = safeStorage('get', 'coverageMetric') === 'r' ? 'r' : 'b'; // b: any stop ≤500 m, r: rail ≤1 km
+// share of population covered -> colour (red = poorly served, green = well served)
+const COVERAGE_STOPS = [[0, '#c62828'], [50, '#ef6c00'], [75, '#fbc02d'], [90, '#c0ca33'], [97, '#7cb342'], [100, '#2e7d32']];
+const coverageColor = (metric) => ['interpolate', ['linear'], ['get', metric], ...COVERAGE_STOPS.flat()];
 let showAmb = safeStorage('get', 'amb') === '1';
 let showVegueries = safeStorage('get', 'vegueries') === '1';
 let showComarques = safeStorage('get', 'comarques') === '1';
@@ -331,6 +337,7 @@ function renderLayersTab() {
   box.append(h, grid);
   box.append(renderLayersBox('Transport', ['stations', 'zones']));
   box.append(renderLayersBox('Territori', ['provincies', 'comarques', 'vegueries', 'amb']));
+  if (DATA.coverage) box.append(renderLayersBox('Anàlisi', ['coverage', 'uncovered']));
   panel.append(box);
 }
 
@@ -365,6 +372,24 @@ function showDisclaimerNotice() {
   $('#footer').before(card);
 }
 
+function coverageSummaryHTML() {
+  const c = DATA.coverage;
+  const fmt = (n) => n.toLocaleString('ca');
+  const pc = (v) => String(v).replace('.', ',');
+  const none = DATA.places.munis.map((m, i) => ({ ...m, i })).filter((m) => !m.sc && m.p).sort((a, b) => b.p - a.p);
+  return `
+    <h3 class="section-title">Cobertura</h3>
+    <div class="stats">
+      <div><b>${pc(c.bus)} %</b><span>de la població viu a ≤500 m d'una parada</span></div>
+      <div><b>${pc(c.rail)} %</b><span>a ≤1 km de tren, metro o tram</span></div>
+      <div><b>${fmt(c.uncoveredPop)}</b><span>persones sense parada a ≤500 m</span></div>
+      <div><b>${fmt(c.noStopMunis)}</b><span>municipis sense cap parada (${fmt(c.noStopPop)} hab.)</span></div>
+    </div>
+    <p class="legend-note cov-note">Població ${c.year} de l'Idescat (graella de 62,5–250 m) creuada amb les parades de les línies en servei.
+    Compta qualsevol parada, sigui quina sigui la freqüència. Activa-ho al mapa a <i>Capes → Anàlisi</i>.</p>
+    ${none.length ? `<details class="cov-none"><summary>Municipis sense cap parada</summary><p>${none.map((m) => `${m.n} (${fmt(m.p)})`).join(', ')}</p></details>` : ''}`;
+}
+
 function renderInfoTab() {
   panel.replaceChildren();
   const box = document.createElement('div');
@@ -386,6 +411,7 @@ function renderInfoTab() {
       <div><b>${fmt(counts.planned || 0)}</b><span>projectes</span></div>
       <div><b>${fmt(DATA.stops.length)}</b><span>parades</span></div>
     </div>
+    ${DATA.coverage ? coverageSummaryHTML() : ''}
     <h3 class="section-title">Llegenda</h3>
     <ul class="legend">
       <li><svg viewBox="0 0 40 10"><path d="M2 5h36" stroke="#fff" stroke-width="7"/><path d="M2 5h36" stroke="#E87200" stroke-width="4"/></svg>Ferrocarril (metro, FGC, Rodalies…)</li>
@@ -402,6 +428,7 @@ function renderInfoTab() {
       <li><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> — línies en projecte i estacions (ODbL)</li>
       <li><a href="https://www.icgc.cat" target="_blank" rel="noopener">ICGC</a> — límits municipals, vegueries; mapes topogràfic i satèl·lit</li>
       <li><a href="https://project-osrm.org" target="_blank" rel="noopener">OSRM</a> — traçats calculats per carretera</li>
+      <li><a href="https://www.idescat.cat/serveis/biblioteca/publicacions/b1701178" target="_blank" rel="noopener">Idescat</a> — població georeferenciada (cobertura)</li>
       <li><a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> — mapes base</li>
       <li>Logotips: Wikimedia Commons i webs dels operadors (marques dels seus titulars)</li>
     </ul>
@@ -417,6 +444,8 @@ const EXTRA_LAYERS = {
   comarques: { label: 'Comarques', note: '43', layers: ['com-fill', 'com-border', 'com-label'], get: () => showComarques, set: (v) => { showComarques = v; } },
   vegueries: { label: 'Vegueries', note: '8 + Aran', layers: ['veg-fill', 'veg-border', 'veg-label'], get: () => showVegueries, set: (v) => { showVegueries = v; } },
   amb: { label: 'Àrea Metropolitana (AMB)', note: '36 municipis', layers: ['amb-fill', 'amb-band', 'amb-line', 'amb-label'], get: () => showAmb, set: (v) => { showAmb = v; } },
+  coverage: { label: 'Cobertura de transport', note: '% població', layers: ['cov-fill', 'cov-line'], get: () => showCoverage, set: (v) => { showCoverage = v; } },
+  uncovered: { label: 'Població sense parada a prop', note: 'a més de 500 m', layers: ['uncov'], get: () => showUncovered, set: (v) => { showUncovered = v; } },
 };
 
 function renderLayersBox(title, keys) {
@@ -472,6 +501,43 @@ function renderLayersBox(title, keys) {
         legend.append(item);
       }
       box.append(legend);
+    } else if (key === 'coverage') {
+      legend = document.createElement('div');
+      legend.className = 'cov-legend';
+      legend.hidden = !def.get();
+      const radios = document.createElement('div');
+      radios.className = 'cov-metric';
+      for (const [m, text] of [['b', 'Parada a ≤500 m'], ['r', 'Tren, metro o tram a ≤1 km']]) {
+        const l = document.createElement('label');
+        l.innerHTML = '<input type="radio" name="cov-metric"><span></span>';
+        l.querySelector('span').textContent = text;
+        const rb = l.querySelector('input');
+        rb.checked = coverageMetric === m;
+        rb.addEventListener('change', () => {
+          coverageMetric = m;
+          safeStorage('set', 'coverageMetric', m);
+          if (map.getLayer('cov-fill')) map.setPaintProperty('cov-fill', 'fill-color', coverageColor(m));
+        });
+        radios.append(l);
+      }
+      const bar = document.createElement('div');
+      bar.className = 'cov-bar';
+      bar.style.background = `linear-gradient(to right, ${COVERAGE_STOPS.map(([v, c]) => `${c} ${v}%`).join(', ')})`;
+      const ticks = document.createElement('div');
+      ticks.className = 'cov-ticks';
+      ticks.innerHTML = '<span style="left:0">0 %</span><span style="left:50%">50 %</span><span style="left:75%">75 %</span><span style="left:100%">100 %</span>';
+      const note = document.createElement('p');
+      note.className = 'legend-note';
+      note.textContent = `Població que viu a prop del transport (Idescat ${DATA.coverage.year}). Clica un municipi per veure'n les xifres.`;
+      legend.append(radios, bar, ticks, note);
+      box.append(legend);
+      const sw = document.createElement('span');
+      sw.className = 'veg-swatch cov';
+      row.insertBefore(sw, row.querySelector('.name'));
+    } else if (key === 'uncovered') {
+      const sw = document.createElement('span');
+      sw.className = 'uncov-swatch';
+      row.insertBefore(sw, row.querySelector('.name'));
     } else if (key === 'provincies') {
       const sw = document.createElement('span');
       sw.className = 'veg-swatch prov';
@@ -648,6 +714,16 @@ function renderFilterBox() {
     pill.querySelector('strong').textContent = placeName(placeFilter);
     pill.querySelector('.pp-x').addEventListener('click', () => setPlace(null));
     place.append(pill);
+    // population coverage of the chosen place (municipality, or comarca as a sum of its municipalities)
+    const ms = placeFilter.t === 'm' ? [DATA.places.munis[placeFilter.i]] : DATA.places.munis.filter((m) => m.c === placeFilter.i);
+    const pop = ms.reduce((a, m) => a + (m.p || 0), 0);
+    if (DATA.coverage && pop) {
+      const near = ms.reduce((a, m) => a + (m.p || 0) * (m.cb || 0), 0) / pop;
+      const info = document.createElement('p');
+      info.className = 'place-cov';
+      info.textContent = `${pop.toLocaleString('ca')} hab. · ${near.toFixed(1).replace('.', ',')} % a ≤500 m d'una parada`;
+      place.append(info);
+    }
   } else {
     const wrap = document.createElement('div');
     wrap.className = 'place-input';
@@ -1422,6 +1498,41 @@ function showStationPopup(f) {
     .addTo(map);
 }
 
+// Coverage figures of the municipality under the cursor (and the uncovered cell, if one was clicked)
+function showCoveragePopup(covf, uf, lngLat) {
+  popup?.remove();
+  const fmt = (n) => n.toLocaleString('ca');
+  const div = document.createElement('div');
+  div.className = 'pop';
+  const title = document.createElement('strong');
+  div.append(title);
+  const line = (html) => {
+    const d = document.createElement('div');
+    d.className = 'pop-zone';
+    d.innerHTML = html;
+    div.append(d);
+  };
+  if (uf) line(`<span class="uncov-swatch"></span> ≈${fmt(uf.properties.p)} persones sense cap parada a ≤500 m`);
+  const mi = covf ? covf.properties.i : null;
+  if (mi !== null) {
+    const m = DATA.places.munis[mi];
+    title.textContent = m.n;
+    const chip = (v) => `<span class="cov-chip" style="--cc:${COVERAGE_STOPS.find(([t]) => v <= t)?.[1] || '#2e7d32'}">${String(v).replace('.', ',')} %</span>`;
+    line(`${fmt(m.p)} habitants (${DATA.coverage.year})`);
+    line(`${chip(m.cb)} a ≤500 m d'una parada`);
+    line(`${chip(m.cr)} a ≤1 km de tren, metro o tram`);
+    line(m.sc ? `${fmt(m.sc)} parades amb servei` : '<b>Cap parada de transport públic</b>');
+    if (m.sc) {
+      const b = document.createElement('button');
+      b.className = 'linklike';
+      b.textContent = 'Mostra les línies del municipi';
+      b.addEventListener('click', () => { popup?.remove(); showTab('xarxes'); setPlace({ t: 'm', i: mi }); });
+      div.append(b);
+    }
+  } else title.textContent = 'Sense parada a prop';
+  popup = new maplibregl.Popup({ maxWidth: '280px' }).setLngLat(lngLat).setDOMContent(div).addTo(map);
+}
+
 function showStopPopup(si) {
   const s = DATA.stops[si];
   popup?.remove();
@@ -1440,9 +1551,9 @@ function showStopPopup(si) {
 }
 
 // ---------- base map switching ----------
-const OUR_SOURCES = new Set(['lines', 'stops', 'catalunya', 'zones', 'amb', 'stations', 'vegueries', 'comarques', 'provincies']);
+const OUR_SOURCES = new Set(['lines', 'stops', 'catalunya', 'zones', 'amb', 'stations', 'vegueries', 'comarques', 'provincies', 'cobertura']);
 // our layers that go under the base map's labels; the rest stay on top
-const BELOW_LABELS = new Set(['prov-fill', 'prov-border', 'veg-fill', 'veg-border', 'com-fill', 'com-border', 'cat-mask', 'cat-border-halo', 'cat-border', 'zones-fill', 'zones-line', 'amb-fill', 'amb-band', 'amb-line', 'lines-bus', 'lines-approx',
+const BELOW_LABELS = new Set(['cov-fill', 'cov-line', 'uncov', 'prov-fill', 'prov-border', 'veg-fill', 'veg-border', 'com-fill', 'com-border', 'cat-mask', 'cat-border-halo', 'cat-border', 'zones-fill', 'zones-line', 'amb-fill', 'amb-band', 'amb-line', 'lines-bus', 'lines-approx',
   'lines-tram', 'lines-rail-casing', 'lines-rail', 'planned-casing', 'planned-c', 'planned-p']);
 
 function setBasemap(key) {
@@ -1523,6 +1634,7 @@ function addLayers() {
   map.addSource('comarques', { type: 'geojson', data: asset('data/comarques.geojson') });
   map.addSource('provincies', { type: 'geojson', data: asset('data/provincies.geojson') });
   map.addSource('stations', { type: 'geojson', data: asset('data/stations.geojson') });
+  if (DATA.coverage) map.addSource('cobertura', { type: 'geojson', data: asset('data/cobertura.geojson') });
   addStationIcons(map);
 
   // Outside Catalonia: greyed out; border: dark red line with a white halo (all below transit lines)
@@ -1593,6 +1705,32 @@ function addLayers() {
     layout: { visibility: zvis },
     paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 7, 0.3, 12, 1.2], 'line-opacity': 0.8 },
   }, firstSymbol);
+  if (DATA.coverage) {
+    const covVis = showCoverage ? 'visible' : 'none';
+    map.addLayer({
+      id: 'cov-fill', type: 'fill', source: 'cobertura', filter: ['==', ['get', 'k'], 'm'],
+      layout: { visibility: covVis },
+      paint: { 'fill-color': coverageColor(coverageMetric), 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 7, 0.55, 13, 0.3] },
+    }, firstSymbol);
+    map.addLayer({
+      id: 'cov-line', type: 'line', source: 'cobertura', filter: ['==', ['get', 'k'], 'm'],
+      layout: { visibility: covVis },
+      paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 7, 0.3, 12, 1.2], 'line-opacity': 0.8 },
+    }, firstSymbol);
+    map.addLayer({
+      id: 'uncov', type: 'circle', source: 'cobertura', filter: ['==', ['get', 'k'], 'u'],
+      layout: { visibility: showUncovered ? 'visible' : 'none' },
+      paint: {
+        'circle-color': '#6a1b9a',
+        'circle-opacity': 0.6,
+        'circle-radius': ['interpolate', ['linear'], ['zoom'],
+          7, ['interpolate', ['linear'], ['get', 'p'], 17, 1, 500, 3.5],
+          13, ['interpolate', ['linear'], ['get', 'p'], 17, 3, 500, 12]],
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 9, 0, 12, 0.8],
+      },
+    }, firstSymbol);
+  }
   const avis = showAmb ? 'visible' : 'none';
   map.addLayer({
     id: 'amb-fill', type: 'fill', source: 'amb', filter: ['==', ['get', 'k'], 'm'],
@@ -1799,6 +1937,9 @@ function addLayers() {
       const vf = at(showVegueries, 'veg-fill');
       const cf = at(showComarques, 'com-fill');
       const pf = at(showProvincies, 'prov-fill');
+      const covf = at(showCoverage, 'cov-fill');
+      const uf = showUncovered ? map.queryRenderedFeatures(box, { layers: ['uncov'] })[0] : null;
+      if (covf || uf) return showCoveragePopup(covf, uf, e.lngLat);
       if (!zf && !af && !vf && !cf && !pf) return;
       popup?.remove();
       const div = document.createElement('div');

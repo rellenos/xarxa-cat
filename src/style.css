@@ -331,3 +331,24 @@ img[src$="tram.svg"] { background: #008C7A; border-radius: 6px; padding: 3px; bo
 .disclaimer-notice p { margin: 0 0 7px; }
 .dn-actions { display: flex; justify-content: flex-end; align-items: center; gap: 12px; }
 .dn-actions .btn { padding: 4px 12px; font-size: 12.5px; }
+
+/* ---------- population coverage (Capes > Anàlisi) ---------- */
+.veg-swatch.cov { width: 16px; background: linear-gradient(90deg, #c62828, #fbc02d, #2e7d32); }
+.uncov-swatch { width: 10px; height: 10px; margin: 0 3px; border-radius: 50%; background: #6a1b9a; opacity: .75; display: inline-block; flex: none; }
+.cov-legend { padding: 4px 0 4px 24px; }
+.cov-legend[hidden] { display: none; }
+.cov-metric { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; color: #3a3f47; margin-bottom: 6px; }
+.cov-metric label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.cov-metric input { margin: 0; accent-color: var(--accent); }
+.cov-bar { height: 8px; border-radius: 4px; }
+.cov-ticks { position: relative; height: 14px; font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+.cov-ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.cov-ticks span:first-child { transform: none; }
+.cov-ticks span:last-child { transform: translateX(-100%); }
+.cov-legend .legend-note { margin: 4px 0 0; }
+.cov-chip { display: inline-block; min-width: 44px; text-align: center; padding: 0 5px; border-radius: 4px; font-weight: 700; font-size: 12px; color: #fff; background: var(--cc); }
+.cov-note { padding: 6px 12px 0; margin: 0; }
+.cov-none { margin: 6px 12px 0; font-size: 12.5px; }
+.cov-none summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+.cov-none p { margin: 4px 0 0; color: #3a3f47; line-height: 1.4; }
+.place-cov { margin: 5px 2px 0; font-size: 12px; color: var(--muted); }

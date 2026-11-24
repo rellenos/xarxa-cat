@@ -6,3 +6,5 @@ data/raw/*.zip
 public/data/
 .claude/settings.local.json
 data/*.log
+# Idescat population grid (downloaded by the data build)
+data/raw/idescat/
