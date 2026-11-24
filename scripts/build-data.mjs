@@ -842,7 +842,7 @@ async function ensurePopulationGrid() {
   const z = await openZip(zipFile);
   for (const [name] of z.entries) {
     if (!/\.(shp|dbf)$/.test(name) || name.includes('..')) continue;
-    const dest = path.join(dir, name);
+    const dest = path.join(dir, String(POP_YEAR), name); // openZip keys entries by base name
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     await pipeline(await entryStream(z, name), fs.createWriteStream(dest));
   }
